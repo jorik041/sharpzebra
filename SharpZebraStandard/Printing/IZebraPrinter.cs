@@ -20,6 +20,8 @@ public class PrinterSettings
     public int AlignTearOff { get; set; }
     public int Darkness { get; set; }
     public int PrintSpeed { get; set; }
+    public string SlewSpeed { get; set; }
+    public string BackfeedSpeed { get; set; }
     public int Width { get; set; }
     public int Length { get; set; }
     public char RamDrive { get; set; }
@@ -27,5 +29,7 @@ public class PrinterSettings
     public PrinterSettings()
     {
         RamDrive = 'R';
+        SlewSpeed = "12";
+        BackfeedSpeed = "12";
     }
 }

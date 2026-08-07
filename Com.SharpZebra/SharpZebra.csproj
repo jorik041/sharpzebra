@@ -3,9 +3,8 @@
   <PropertyGroup>
     <TargetFramework>net20</TargetFramework>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <Version>1.0.6</Version>
-    <PackageReleaseNotes>v1.0.6: QR Code, inverse custom text support from malbach. Fix alignment crash on empty text.
-</PackageReleaseNotes>
+    <Version>1.1.7</Version>
+    <PackageReleaseNotes>v1.1.7: Added support for Interleaved 2 of 5 bar code</PackageReleaseNotes>
     <PackageId>SharpZebra.rkone</PackageId>
     <Authors>rkone</Authors>
     <Company>rkone</Company>

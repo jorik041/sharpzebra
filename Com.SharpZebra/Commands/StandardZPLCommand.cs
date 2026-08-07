@@ -19,7 +19,7 @@ namespace SharpZebra.Commands
             _stringCounter = 0;
             _printerSettings = settings;
             return Encoding.GetEncoding(850).GetBytes(
-                $"^XA^MMT^PR{settings.PrintSpeed},12,12~TA{settings.AlignTearOff:000}^LH{settings.AlignLeft},{settings.AlignTop}~SD{settings.Darkness:00}^PW{settings.Width + settings.AlignLeft}");
+                $"^XA^MMT^PR{settings.PrintSpeed},{settings.SlewSpeed},{settings.BackfeedSpeed}~TA{settings.AlignTearOff:000}^LH{settings.AlignLeft},{settings.AlignTop}~SD{settings.Darkness:00}^PW{settings.Width + settings.AlignLeft}");
         }
 
         /// <summary>
@@ -59,6 +59,7 @@ namespace SharpZebra.Commands
                     return Encoding.GetEncoding(850).GetBytes($"^FO{left},{top}^BY{barcode.BarWidthNarrow}^BU{(char)rotation},{height},{encodedReadable}^FD{barcodeData}^FS");
                 case BarcodeType.SSCC:
                     return Encoding.GetEncoding(850).GetBytes($"^FO{left},{top}^BY{barcode.BarWidthNarrow}^BC{(char)rotation},{height},{encodedReadable},N,,D^FD{barcodeData}^FS");
+
                 default:
                     throw new ArgumentException("Barcode not yet supported by SharpZebra library.");
             }

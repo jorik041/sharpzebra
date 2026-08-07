@@ -19,7 +19,7 @@ public partial class ZPLCommands
         _stringCounter = 0;
         _printerSettings = settings;
         return Encoding.GetEncoding(850).GetBytes(
-            $"^XA^MMT^PR{settings.PrintSpeed},12,12~TA{settings.AlignTearOff:000}^LH{settings.AlignLeft},{settings.AlignTop}~SD{settings.Darkness:00}^PW{settings.Width + settings.AlignLeft}");
+            $"^XA^MMT^PR{settings.PrintSpeed},{settings.SlewSpeed},{settings.BackfeedSpeed}~TA{settings.AlignTearOff:000}^LH{settings.AlignLeft},{settings.AlignTop}~SD{settings.Darkness:00}^PW{settings.Width + settings.AlignLeft}");
     }
 
     /// <summary>
@@ -58,7 +58,7 @@ public partial class ZPLCommands
             BarcodeType.EAN13 => Encoding.GetEncoding(850).GetBytes(
                                 $"^FO{left},{top}^BY{barcode.BarWidthNarrow}^BE{(char)rotation},{height},{encodedReadable}^FD{barcodeData}^FS"),
             BarcodeType.SSCC => Encoding.GetEncoding(850).GetBytes($"^FO{left},{top}^BY{barcode.BarWidthNarrow}^BC{(char)rotation},{height},{encodedReadable},N,,D^FD{barcodeData}^FS"),
-            
+            BarcodeType.INTERLEAVED_2OF5 => Encoding.GetEncoding(850).GetBytes($"^FO{left},{top}^BY{barcode.BarWidthNarrow}^B2{(char)rotation},{height},{encodedReadable},,^FD{barcodeData}^FS"),
             _ => throw new ArgumentException("Barcode not yet supported by SharpZebra library."),
         };
     }
