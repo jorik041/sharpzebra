@@ -11,17 +11,14 @@ public partial class EPLCommands
     public static int[] CustomFontCharacterWidth(SKFont font)
     {
         var width = new int[256];
-        using var paint = new SKPaint();
-        paint.Typeface = font.Typeface;
-        paint.TextSize = font.Size * 203 / 72; // points are 72dpi, EPL printers are 203dpi
+        using var scaledFont = new SKFont(font.Typeface, font.Size * 203f / 72); // points are 72dpi, EPL printers are 203dpi
 
         for (var i = 0; i < 256; i++)
         {
-            var skBounds = SKRect.Empty;
-            paint.MeasureText(((char)i).ToString(), ref skBounds);
+            scaledFont.MeasureText(((char)i).ToString(), out var skBounds);
             width[i] = (int)Math.Ceiling(skBounds.Width);
         }
-        width[32] = (int)(paint.TextSize / 4); //set space width to be 1/4 of font size
+        width[32] = (int)(scaledFont.Size / 4); //set space width to be 1/4 of font size
         return width;
     }
 
@@ -69,16 +66,15 @@ public partial class EPLCommands
         {
             //Use OEM encoding.  
             int currentChr = System.Text.Encoding.GetEncoding(437).GetBytes(FontCharset.CharList[(int)charset])[i];
-            using var paint = new SKPaint(font);
-            paint.TextSize = fontSize;
+            using var chrFont = new SKFont(font.Typeface, fontSize);
+            using var paint = new SKPaint();
             paint.Color = SKColors.Black;
 
-            var skBounds = SKRect.Empty;
-            paint.MeasureText(FontCharset.CharList[(int)charset][i].ToString(), ref skBounds);
+            chrFont.MeasureText(FontCharset.CharList[(int)charset][i].ToString(), out var skBounds);
             chr[i] = new SKBitmap((int)Math.Ceiling(skBounds.Width + spacing), (int)Math.Ceiling(skBounds.Height), SKColorType.Gray8, SKAlphaType.Opaque);
             using var chrCanvas = new SKCanvas(chr[i]);
             chrCanvas.Clear();
-            chrCanvas.DrawText(FontCharset.CharList[(int)charset][i].ToString(), 0, -skBounds.Top, paint);
+            chrCanvas.DrawText(FontCharset.CharList[(int)charset][i].ToString(), 0, -skBounds.Top, SKTextAlign.Left, chrFont, paint);
 
             fontStart[i] = chr[i].Width;
             var fontEnd = 0;

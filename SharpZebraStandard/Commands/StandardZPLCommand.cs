@@ -33,7 +33,10 @@ public partial class ZPLCommands
     }
 
     /// <summary>
-    /// Instruct the Zebra printer to print a barcode.  Currently only 3of9, Code128, UPC_A and EAN13 are supported.
+    /// Instruct the Zebra printer to print a barcode.  Currently only 3of9, Code128, UPC_A, EAN13, SSCC,
+    /// Interleaved 2 of 5 and GTIN-14 are supported.
+    /// When the barcode's BearerBars is not NONE, bearer bars are drawn around the symbology and the
+    /// interpretation line is printed manually outside the bars.
     /// </summary>
     /// <param name="left">Distance in dots from the left of the label</param>
     /// <param name="top">Distance in dots to the top of the label</param>
@@ -47,20 +50,92 @@ public partial class ZPLCommands
     {
         if (barcodeData is null) return Array.Empty<byte>();
         var encodedReadable = readable ? "Y" : "N";
-        return barcode.Type switch
+
+        //without bearer bars, print the bare symbology command with ZPL's own interpretation line
+        //(GTIN-14 always uses the assembly below so its quiet zones and manual text are kept)
+        if (barcode.BearerBars == BearerBarType.NONE && barcode.Type != BarcodeType.GTIN14)
         {
-            BarcodeType.CODE39_STD_EXT => Encoding.GetEncoding(850).GetBytes(
-                                $"^FO{left},{top}^BY{barcode.BarWidthNarrow}^B3{(char)rotation},,{height},{encodedReadable}^FD{barcodeData}^FS"),
-            BarcodeType.CODE128_AUTO => Encoding.GetEncoding(850).GetBytes(
-                                $"^FO{left},{top}^BY{barcode.BarWidthNarrow}^BC{(char)rotation},{height},{encodedReadable}^FD{barcodeData}^FS"),
-            BarcodeType.UPC_A => Encoding.GetEncoding(850).GetBytes(
-                                $"^FO{left},{top}^BY{barcode.BarWidthNarrow}^BU{(char)rotation},{height},{encodedReadable}^FD{barcodeData}^FS"),
-            BarcodeType.EAN13 => Encoding.GetEncoding(850).GetBytes(
-                                $"^FO{left},{top}^BY{barcode.BarWidthNarrow}^BE{(char)rotation},{height},{encodedReadable}^FD{barcodeData}^FS"),
-            BarcodeType.SSCC => Encoding.GetEncoding(850).GetBytes($"^FO{left},{top}^BY{barcode.BarWidthNarrow}^BC{(char)rotation},{height},{encodedReadable},N,,D^FD{barcodeData}^FS"),
-            BarcodeType.INTERLEAVED_2OF5 => Encoding.GetEncoding(850).GetBytes($"^FO{left},{top}^BY{barcode.BarWidthNarrow}^B2{(char)rotation},{height},{encodedReadable},,^FD{barcodeData}^FS"),
+            return barcode.Type switch
+            {
+                BarcodeType.CODE39_STD_EXT => Encoding.GetEncoding(850).GetBytes(
+                                    $"^FO{left},{top}^BY{barcode.BarWidthNarrow}^B3{(char)rotation},,{height},{encodedReadable}^FD{barcodeData}^FS"),
+                BarcodeType.CODE128_AUTO => Encoding.GetEncoding(850).GetBytes(
+                                    $"^FO{left},{top}^BY{barcode.BarWidthNarrow}^BC{(char)rotation},{height},{encodedReadable}^FD{barcodeData}^FS"),
+                BarcodeType.UPC_A => Encoding.GetEncoding(850).GetBytes(
+                                    $"^FO{left},{top}^BY{barcode.BarWidthNarrow}^BU{(char)rotation},{height},{encodedReadable}^FD{barcodeData}^FS"),
+                BarcodeType.EAN13 => Encoding.GetEncoding(850).GetBytes(
+                                    $"^FO{left},{top}^BY{barcode.BarWidthNarrow}^BE{(char)rotation},{height},{encodedReadable}^FD{barcodeData}^FS"),
+                BarcodeType.SSCC => Encoding.GetEncoding(850).GetBytes($"^FO{left},{top}^BY{barcode.BarWidthNarrow}^BC{(char)rotation},{height},{encodedReadable},N,,D^FD{barcodeData}^FS"),
+                BarcodeType.INTERLEAVED_2OF5 => Encoding.GetEncoding(850).GetBytes($"^FO{left},{top}^BY{barcode.BarWidthNarrow}^B2{(char)rotation},{height},{encodedReadable},,^FD{barcodeData}^FS"),
+                _ => throw new ArgumentException("Barcode not yet supported by SharpZebra library."),
+            };
+        }
+
+        int narrow = barcode.BarWidthNarrow ?? 2;
+        //BearerBarWidth of 0 or less selects the conventional default of 3x the narrow bar
+        int bearer = barcode.BearerBars == BearerBarType.NONE ? 0
+            : barcode.BearerBarWidth > 0 ? barcode.BearerBarWidth : 3 * narrow;
+        //^B2 adds a leading zero to odd-length data; each digit pair is 18 modules (at 3:1), start/stop add 9
+        int i2of5Digits = barcodeData.Length + barcodeData.Length % 2;
+        int ssccDigits = 0;
+        foreach (var c in barcodeData) if (c >= '0' && c <= '9') ssccDigits++;
+        //drawing bearer bars requires the symbol's rendered width: modules (multiples of the narrow bar)
+        //per symbology, paired with its command with ZPL's interpretation line disabled
+        (int modules, string command) = barcode.Type switch
+        {
+            //16 modules per character (at 3:1, incl. intercharacter gap) plus start/stop, less the trailing gap
+            BarcodeType.CODE39_STD_EXT => (16 * (barcodeData.Length + 2) - 1, $"^B3{(char)rotation},,{height},N"),
+            //subset B: 11 modules per character plus start, check and stop
+            BarcodeType.CODE128_AUTO => (11 * barcodeData.Length + 35, $"^BC{(char)rotation},{height},N"),
+            BarcodeType.UPC_A => (95, $"^BU{(char)rotation},{height},N"),
+            BarcodeType.EAN13 => (95, $"^BE{(char)rotation},{height},N"),
+            //subset C digit pairs plus start, FNC1, check and stop; non-digits are not encoded
+            BarcodeType.SSCC => (11 * ((ssccDigits + 1) / 2 + 3) + 13, $"^BC{(char)rotation},{height},N,N,,D"),
+            BarcodeType.INTERLEAVED_2OF5 or BarcodeType.GTIN14 => (9 * i2of5Digits + 9, $"^B2{(char)rotation},{height},N,N,N"),
             _ => throw new ArgumentException("Barcode not yet supported by SharpZebra library."),
         };
+        int symbolWidth = modules * narrow;
+        int boxWidth = symbolWidth + 2 * (50 + bearer);
+        int textHeight = height / 6;
+        //the interpretation line sits inside the frame for ENCLOSING, below the bearer bars otherwise
+        int frameHeight = barcode.BearerBars == BearerBarType.ENCLOSING
+            ? height + textHeight + 10 + 2 * bearer
+            : height + 2 * bearer;
+        int textTop = barcode.BearerBars == BearerBarType.ENCLOSING
+            ? bearer + height + 5
+            : height + 2 * bearer + 5;
+        bool vertical = rotation is ElementDrawRotation.ROTATE_90_DEGREES or ElementDrawRotation.ROTATE_270_DEGREES;
+        //layout is computed unrotated ((0,0) = frame top left, x running along the bars), then each
+        //element is placed so the rotated assembly keeps its top left corner at (left, top)
+        string Place(int x, int y, int w, int h) => rotation switch
+        {
+            ElementDrawRotation.ROTATE_90_DEGREES => $"^FO{left + frameHeight - y - h},{top + x}",
+            ElementDrawRotation.ROTATE_180_DEGREES => $"^FO{left + boxWidth - x - w},{top + frameHeight - y - h}",
+            ElementDrawRotation.ROTATE_270_DEGREES => $"^FO{left + y},{top + boxWidth - x - w}",
+            _ => $"^FO{left + x},{top + y}",
+        };
+        string Box(int x, int y, int w, int h, int border) =>
+            Place(x, y, w, h) + (vertical ? $"^GB{h},{w},{border}^FS" : $"^GB{w},{h},{border}^FS");
+        var bearerZpl = barcode.BearerBars switch
+        {
+            //frame around the barcode and quiet zones (plus the interpretation line for ENCLOSING)
+            BearerBarType.ABUTTING or BearerBarType.ENCLOSING => Box(0, 0, boxWidth, frameHeight, bearer),
+            //bearer bars along the top and bottom of the barcode, spanning the quiet zones
+            BearerBarType.HORIZONTAL => Box(0, 0, boxWidth, bearer, bearer) +
+                                        Box(0, bearer + height, boxWidth, bearer, bearer),
+            _ => string.Empty,
+        };
+        //interpretation line is always printed manually; GS1 spacing when the data is a full GTIN-14
+        var text = barcode.Type == BarcodeType.GTIN14 && barcodeData.Length == 14
+            ? $"{barcodeData[0]} {barcodeData.Substring(1, 2)} {barcodeData.Substring(3, 5)} {barcodeData.Substring(8, 5)} {barcodeData[13]}"
+            : barcodeData;
+        var textZpl = readable
+            ? Place(0, textTop, boxWidth, textHeight) + $"^A0{(char)rotation},{textHeight},{textHeight}^FD{text}^FB{boxWidth},1,0,C,^FS"
+            : string.Empty;
+        return Encoding.GetEncoding(850).GetBytes(
+            bearerZpl +
+            Place(50 + bearer, bearer, symbolWidth, height) + $"^BY{narrow},3,{command}^FD{barcodeData}^FS" +
+            textZpl);
     }
 
     /// <summary>

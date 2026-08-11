@@ -73,20 +73,18 @@ public partial class ZPLCommands
                 _customImage = null;
                 return;
             }
-            using var paint = new SKPaint(_font);
-            paint.TextSize = _font.Size * 203 / 72; //should get printer dpi...
+            using var scaledFont = new SKFont(_font.Typeface, _font.Size * 203f / 72); //should get printer dpi...
+            using var paint = new SKPaint();
             paint.Color = _inverse ? SKColors.White : SKColors.Black;
 
-
-            var skBounds = SKRect.Empty;
-            paint.MeasureText(_text, ref skBounds);
+            scaledFont.MeasureText(_text, out var skBounds);
 
             _customImage = new SKBitmap((int)Math.Ceiling(skBounds.Width), (int)Math.Ceiling(skBounds.Height), SKColorType.Gray8, SKAlphaType.Opaque);
             _customImage.Erase(_inverse ? SKColors.Black : SKColors.White);
 
             using var canvas = new SKCanvas(_customImage);
             canvas.Clear(_inverse ? SKColors.Black : SKColors.White);
-            canvas.DrawText(_text, 0, -skBounds.Top, paint);
+            canvas.DrawText(_text, 0, -skBounds.Top, SKTextAlign.Left, scaledFont, paint);
 
             switch (_rotation)
             {

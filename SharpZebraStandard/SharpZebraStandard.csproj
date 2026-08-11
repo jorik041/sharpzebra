@@ -5,8 +5,8 @@
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <Authors>rkone</Authors>
     <Description>Print to networked Zebra label printers using EPL2/ZPL (without needing to know EPL2 or ZPL)</Description>
-    <Version>1.1.7</Version>
-    <PackageReleaseNotes>v1.1.7: Added support for Interleaved 2 of 5 bar code</PackageReleaseNotes>
+    <Version>1.1.8</Version>
+    <PackageReleaseNotes>v1.1.8: Added GTIN-14 bar code. Added Bearer Bars for all barcodes. Updated SkiaSharp to v4.15.1</PackageReleaseNotes>
 	<PackageReadmeFile>readme.md</PackageReadmeFile>
     <RootNamespace>SharpZebra</RootNamespace>
     <SignAssembly>true</SignAssembly>
@@ -27,8 +27,8 @@
 
   <ItemGroup>
 	<None Include="Docs\readme.md" Pack="true" PackagePath="\" />
-    <PackageReference Include="SkiaSharp" Version="2.88.9" />
-    <PackageReference Include="System.Drawing.Common" Version="10.0.7" />
+    <PackageReference Include="SkiaSharp" Version="4.151.1" />
+    <PackageReference Include="System.Drawing.Common" Version="10.0.11" />
   </ItemGroup>
 
 </Project>
